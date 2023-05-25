@@ -1,24 +1,42 @@
-from fastapi import FastAPI
+from datetime import datetime
+from typing import List, Optional
+from fastapi import Depends, FastAPI
+from fastapi_users import FastAPIUsers, fastapi_users
+from pydantic import BaseModel, Field
+from enum import Enum
+
+from auth.auth import auth_backend
+from auth.database import User
+from auth.manager import get_user_manager
+from auth.schemas import UserRead, UserCreate
 
 app = FastAPI(
     title='Trading App'
 )
 
-fake_users = [
-    {'id': 1, 'role': 'admin', 'name': 'Bob'},
-    {'id': 2, 'role': 'investor', 'name': 'John'},
-    {'id': 3, 'role': 'trader', 'name': 'Matt'},
-]
+fastapi_users = FastAPIUsers[User, int](
+    get_user_manager,
+    [auth_backend],
+)
 
-@app.get('/users/{user_id}')
-def get_user(user_id: int):
-    return [user for user in fake_users if user.get('id') == user_id]
+app.include_router(
+    fastapi_users.get_auth_router(auth_backend),
+    prefix="/auth/jwt",
+    tags=["auth"],
+)
 
-fake_trades = [
-    {'id': 1, 'user_id': 1, 'currency': 'BTC', 'side': 'buy', 'price': 123, 'amount': 2.12},
-    {'id': 2, 'user_id': 1, 'currency': 'BTC', 'side': 'sell', 'price': 123, 'amount': 2.12},
-]
+app.include_router(
+    fastapi_users.get_register_router(UserRead, UserCreate),
+    prefix="/auth",
+    tags=["auth"],
+)
 
-@app.get('/trades')
-def get_trades(limit: int = 1, offset: int = 0):
-    return fake_trades[offset:][:limit]
+current_user = fastapi_users.current_user()
+
+@app.get("/protected-route")
+def protected_route(user: User = Depends(current_user)):
+    return f"Hello, {user.username}"
+
+@app.get("/unprotected-route")
+def unprotected_route():
+    return f"Hello, anonym"
