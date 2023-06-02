@@ -7,6 +7,7 @@ from redis import asyncio as aioredis
 from auth.base_config import auth_backend, fastapi_users
 from auth.schemas import UserRead, UserCreate
 from operations.routers import router as router_operations
+from tasks.routers import router as router_tasks
 
 app = FastAPI(
     title='Trading App'
@@ -25,6 +26,7 @@ app.include_router(
 )
 
 app.include_router(router_operations)
+app.include_router(router_tasks)
 
 
 @app.on_event("startup")
